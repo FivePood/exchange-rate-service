@@ -11,8 +11,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 
 final class UpdateCurrenciesCommand extends Command
 {
-    //php bin/console app:update-currencies
-
     private ContainerInterface $container;
 
     public function __construct(ContainerInterface $container)
