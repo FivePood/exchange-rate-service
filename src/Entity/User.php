@@ -115,8 +115,8 @@ class User implements UserInterface
     public function setApiToken(ApiToken $apiToken): self
     {
         // set the owning side of the relation if necessary
-        if ($apiToken->getUser() !== $this) {
-            $apiToken->setUser($this);
+        if ($apiToken->getUserId() !== $this) {
+            $apiToken->setUserId($this);
         }
 
         $this->apiToken = $apiToken;

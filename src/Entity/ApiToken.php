@@ -18,7 +18,7 @@ class ApiToken
 
     #[ORM\OneToOne(inversedBy: 'apiToken', targetEntity: User::class, cascade: ['persist', 'remove'])]
     #[ORM\JoinColumn(nullable: false)]
-    private $user;
+    private $userId;
 
     public function getId(): ?int
     {
@@ -34,17 +34,18 @@ class ApiToken
     {
         $this->token = $token;
 
+
         return $this;
     }
 
-    public function getUser(): ?User
+    public function getUserId(): ?User
     {
-        return $this->user;
+        return $this->userId;
     }
 
-    public function setUser(User $user): self
+    public function setUserId(User $userId): self
     {
-        $this->user = $user;
+        $this->userId = $userId;
 
         return $this;
     }

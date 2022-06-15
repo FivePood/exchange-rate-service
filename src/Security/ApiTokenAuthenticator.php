@@ -3,17 +3,20 @@
 namespace App\Security;
 
 use App\Repository\ApiTokenRepository;
-use JetBrains\PhpStorm\NoReturn;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
+use Symfony\Component\Security\Core\Exception\CustomUserMessageAuthenticationException;
 use Symfony\Component\Security\Core\User\UserInterface;
-use Symfony\Component\Security\Core\User\UserProviderInterface;
-use Symfony\Component\Security\Guard\AbstractGuardAuthenticator;
+use Symfony\Component\Security\Http\Authenticator\AbstractAuthenticator;
+use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
+use Symfony\Component\Security\Http\Authenticator\Passport\Credentials\CustomCredentials;
+use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
+use Symfony\Component\Security\Http\Authenticator\Passport\PassportInterface;
 
-class ApiTokenAuthenticator extends AbstractGuardAuthenticator
+class ApiTokenAuthenticator extends AbstractAuthenticator
 {
     private ApiTokenRepository $apiTokenRepo;
 
@@ -21,33 +24,34 @@ class ApiTokenAuthenticator extends AbstractGuardAuthenticator
     {
         $this->apiTokenRepo = $apiTokenRepo;
     }
+
     public function supports(Request $request): bool
     {
         // look for header "Authorization: Bearer <token>"
         return $request->headers->has('Authorization')
             && str_starts_with($request->headers->get('Authorization'), 'Bearer ');
     }
-    public function getCredentials(Request $request)
-    {
-        $authorizationHeader = $request->headers->get('Authorization');
-        // skip beyond "Bearer "
-        return substr($authorizationHeader, 7);
-    }
-    public function getUser($credentials, UserProviderInterface $userProvider)
-    {
-        $token = $this->apiTokenRepo->findOneBy([
-            'token' => $credentials
-        ]);
-        if (!$token) {
-            return;
-        }
-        return $token->getUser();
-    }
 
-    #[NoReturn]
-    public function checkCredentials($credentials, UserInterface $user)
+    public function authenticate(Request $request): PassportInterface
     {
-        dd('checking credentials');
+        $authHeader = $request->headers->get('Authorization');
+        $token = substr($authHeader, 7);
+
+        $apiToken = $this->apiTokenRepo->findOneBy(['token' => $token]);
+
+        if (empty($apiToken)) {
+            throw new CustomUserMessageAuthenticationException('Invalid API Token');
+        }
+
+        $user = $apiToken->getUserId();
+
+        return new Passport(
+            new UserBadge($user->getId()),
+            new CustomCredentials(
+                fn($credentials, UserInterface $user) => !$credentials->isExpired(),
+                $apiToken
+            )
+        );
     }
 
     public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
@@ -60,14 +64,5 @@ class ApiTokenAuthenticator extends AbstractGuardAuthenticator
         return new JsonResponse([
             'message' => $exception->getMessageKey()
         ], Response::HTTP_UNAUTHORIZED);
-    }
-
-    public function start(Request $request, AuthenticationException $authException = null)
-    {
-        return null;
-    }
-    public function supportsRememberMe()
-    {
-        return null;
     }
 }
